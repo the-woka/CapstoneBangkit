@@ -3,9 +3,9 @@ const csv = require("csv-parser");
 const path = require("path");
 const haversine = require("../utils/haversine");
 
+// Load locations data from CSV file
 let locations = [];
 
-// csv parser untuk membaca file csv
 fs.createReadStream(path.join(__dirname, "../data/locations.csv"))
   .pipe(csv())
   .on("data", (row) => {
@@ -19,6 +19,7 @@ fs.createReadStream(path.join(__dirname, "../data/locations.csv"))
     console.log("Data lokasi berhasil dibaca.");
   });
 
+// Get recommendations based on user input and calculated distance
 exports.getRecommendations = async (request, h) => {
   try {
     const { latitude, longitude } = request.query;
@@ -26,28 +27,30 @@ exports.getRecommendations = async (request, h) => {
     const userLat = parseFloat(latitude);
     const userLon = parseFloat(longitude);
 
-    const distances = locations.map((location) => ({
-      name: location.name,
-      latitude: location.latitude,
-      longitude: location.longitude,
-      distance: haversine(
+    // Calculate distances from user location to each location in the dataset
+    const distances = locations.map((location) => {
+      const distance = haversine(
         userLat,
         userLon,
         location.latitude,
         location.longitude
-      ),
-    }));
+      );
+      return {
+        name: location.name,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        distance: distance,
+      };
+    });
 
-    // Pemodelan (untuk sekarang ditampilkan jarak terdekat dengan 10 tempat)
-    distances.sort((a, b) => a.distance - b.distance);
+    // Filter locations within 50 km
+    const filteredLocations = distances.filter(
+      (location) => location.distance >= 45 && location.distance <= 50
+    );
 
-    const recommendations = distances.slice(0, 10);
-
-    return h.response(recommendations);
+    return h.response(filteredLocations);
   } catch (error) {
     console.error(error);
-    return h
-      .response({ error: "Gagal mengambil rekomendasi lokasi" })
-      .code(500);
+    return h.response({ error: "Gagal mengambil rekomendasi" }).code(500);
   }
 };
